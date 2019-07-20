@@ -4,12 +4,11 @@
 # Author: Necmettin Çarkacı
 # E-mail: necmettin [ . ] carkaci [ @ ] gmail [ . ] com
 
-
 import os, math
 import argparse
 from PIL import Image
 from queue import Queue
-from threading import Thread, current_thread
+from threading import Thread
 
 
 def getBinaryData(filename):
@@ -152,6 +151,5 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 
-	print(args)
 	main(args.input_dir, width=None)
 
