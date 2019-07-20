@@ -1,180 +1,157 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
 # Binary to Image Converter
 # Read executable binary files and convert them RGB and greyscale png images
 #
 # Author: Necmettin Çarkacı
 # E-mail: necmettin [ . ] carkaci [ @ ] gmail [ . ] com
-#
-#Usage : binary2image.py /home/user/binaryDir outputdir width
 
 
-import sys, os, math, Image
-from Queue import Queue
+import os, math
+import argparse
+from PIL import Image
+from queue import Queue
 from threading import Thread, current_thread
 
+
 def getBinaryData(filename):
-	
-	binaryValues = []
-	file = open(filename, "rb")
-	
+	"""
+	Extract byte values from binary executable file and store them into list
+	:param filename: executable file name
+	:return: byte value list
+	"""
+
+	binary_values = []
+
+	with open(filename, 'rb') as fileobject:
+
+		# read file byte by byte
+		data = fileobject.read(1)
+
+		while data != b'':
+			binary_values.append(ord(data))
+			data = fileobject.read(1)
+
+	return binary_values
+
+
+def createGreyScaleImage(filename, width=None):
+	"""
+	Create greyscale image from binary data. Use given with if defined or create square size image from binary data.
+	:param filename: image filename
+	"""
+	greyscale_data  = getBinaryData(filename)
+	size            = get_size(len(greyscale_data), width)
+	save_file(filename, greyscale_data, size, 'L')
+
+
+def createRGBImage(filename, width=None):
+	"""
+	Create RGB image from 24 bit binary data 8bit Red, 8 bit Green, 8bit Blue
+	:param filename: image filename
+	"""
+	index = 0
+	rgb_data = []
+
+	# Read binary file
+	binary_data = getBinaryData(filename)
+
+	# Create R,G,B pixels
+	while (index + 3) < len(binary_data):
+		R = binary_data[index]
+		G = binary_data[index+1]
+		B = binary_data[index+2]
+		index += 3
+		rgb_data.append((R, G, B))
+
+	size = get_size(len(rgb_data), width)
+	save_file(filename, rgb_data, size, 'RGB')
+
+
+def save_file(filename, data, size, image_type):
+
 	try:
-		
-    		data = file.read(1) # read byte by byte
-		
-    		while data != "":
-			
-        		binaryValues.append(ord(data)) # store value to array	
-			data = file.read(1) # get next byte value
-			
-	finally:
-    		file.close()
-	
-	return binaryValues 
+		image = Image.new(image_type, size)
+		image.putdata(data)
 
-def createGreyScaleImage(dataSet,outputfilename):
-	'''
-		Create greyscale image from binary data
-	'''
+		# setup output filename
+		dirname     = os.path.dirname(filename)
+		name, _     = os.path.splitext(filename)
+		name        = os.path.basename(name)
+		imagename   = dirname + os.sep + image_type + os.sep + name + '_'+image_type+ '.png'
+		os.makedirs(os.path.dirname(imagename), exist_ok=True)
 
-	size = int(math.sqrt(len(dataSet)))+1
-	image = Image.new('L', (size,size))
+		image.save(imagename)
+		print('The file', imagename, 'saved.')
+	except Exception as err:
+		print(err)
 
-	image.putdata(dataSet)
 
-	imagename = outputfilename+".png" 
-	image.save(imagename)
-	#image.show() 		
-	print imagename+" Greyscale image created"
+def get_size(data_length, width=None):
+	# source Malware images: visualization and automatic classification by L. Nataraj
+	# url : http://dl.acm.org/citation.cfm?id=2016908
 
-def createGreyScaleImageSpecificWith(dataSet,outputfilename,width=0):
-	'''
-		Create greyscale image from binary data
-		@ source Malware images: visualization and automatic classification by L. Nataraj
-		@ url http://dl.acm.org/citation.cfm?id=2016908
-	'''
-	if (width == 0): # don't specified
-		size = len(dataSet)
+	if width is None: # with don't specified any with value
 
-		if (size < 10240) :
+		size = data_length
+
+		if (size < 10240):
 			width = 32
-		elif (10240 <= size <= 10240*3 ):
+		elif (10240 <= size <= 10240 * 3):
 			width = 64
-		elif (10240*3 <= size <= 10240*6 ):
-			width = 128	
-		elif (10240*6 <= size <= 10240*10 ):
+		elif (10240 * 3 <= size <= 10240 * 6):
+			width = 128
+		elif (10240 * 6 <= size <= 10240 * 10):
 			width = 256
-		elif (10240*10 <= size <= 10240*20 ):
+		elif (10240 * 10 <= size <= 10240 * 20):
 			width = 384
-		elif (10240*20 <= size <= 10240*50 ):
+		elif (10240 * 20 <= size <= 10240 * 50):
 			width = 512
-		elif (10240*50 <= size <= 10240*100 ):
+		elif (10240 * 50 <= size <= 10240 * 100):
 			width = 768
-		else :
+		else:
 			width = 1024
 
-	height = int(size/width)+1
+		height = int(size / width) + 1
 
-	image = Image.new('L', (width,height))
+	else:
+		width  = int(math.sqrt(data_length)) + 1
+		height = width
 
-	image.putdata(dataSet)
-
-	imagename = outputfilename+".png" 
-	image.save(imagename)
-	#image.show() 		
-	print imagename+" Greyscale image created"
-
-def createRGBDataSet(dataSet):
-	index = 0
-	resultSet = []
-	while ((index+3) < len(dataSet)):
-		
-		R = dataSet[index]
-		index = index+1
-		G = dataSet[index]
-		index = index+1		
-		B = dataSet[index]
-		index = index+1	
-		resultSet.append((R,G,B))
-	return resultSet	
-
-def createRGBImage(rgbData, outputfilename):
-	size = int(math.sqrt((len(rgbData))))+1
-	image = Image.new( 'RGB', (size,size), "black") # create a new black image
-	image.putdata(rgbData)
-	
-	imagename = outputfilename+"_rgb.png" 
-	image.save(imagename)
-	#image.show() 		
-	print imagename+ " RGB image created"
+	return (width, height)
 
 
-def getFilepaths(directory):
-	''' 
-		Collect all files form given directory and return their paths list
-	'''
+def run(file_queue, width):
 
-	file_paths = []
+	while not file_queue.empty():
+		filename = file_queue.get()
+		createGreyScaleImage(filename, width)
+		createRGBImage(filename, width)
+		file_queue.task_done()
 
-	for root, directories, files in os.walk(directory):
+
+def main(input_dir, width=None, thread_number=7):
+
+	# Get all executable files in input directory and add them into queue
+	file_queue = Queue()
+	for root, directories, files in os.walk(input_dir):
 		for filename in files:
-			filepath = os.path.join(root, filename)
-			file_paths.append(filepath) 
-	
-	return file_paths
+			file_path = os.path.join(root, filename)
+			file_queue.put(file_path)
 
-def clean(directory, fileExt):
-	'''
-		delete all files in directory as a given file extension which describe parameter
-		
-	'''
-	for root, directories, files in os.walk(directory):
-		for filename in files:
-			if filename.endswith(fileExt):
-				filepath = os.path.join(root, filename)
-				os.remove(filepath)
-
-def run(fileQueue,outDirectory,width):
-	while not fileQueue.empty():
-		sourceFilename  = fileQueue.get()
-		path, name 	= os.path.split(sourceFilename)
-		name		= name.split('.')[0]
-
-		outputDir	= os.getcwd()+os.sep+outDirectory+os.sep
-		outputFilename	= outputDir+name
-
-		if not os.path.exists(outputDir):
-			os.makedirs(outputDir)
-
-		binaryData = getBinaryData(sourceFilename)
-		createGreyScaleImageSpecificWith(binaryData,outputFilename,width)
-		#createGreyScaleImage(binaryData,outputFilename)
-		#rgbData    = createRGBDataSet(binaryData)
-		#createRGBImage(rgbData,outputFilename)
-		#print (current_thread())
-		fileQueue.task_done()
+	# Start thread
+	for index in range(thread_number):
+		thread = Thread(target=run, args=(file_queue, width))
+		thread.daemon = True
+		thread.start()
+	file_queue.join()
 
 
 if __name__ == '__main__':
 
-	width 		= 0	
-	inputDirectory 	= sys.argv[1]
-	outDirectory 	= sys.argv[2]
-	width 		= int(sys.argv[3])
+	parser = argparse.ArgumentParser(prog='binar2image.py', description="Convert binary file to image")
+	parser.add_argument(dest='input_dir', help='Input directory path is which include executable files')
 
-	filepaths = getFilepaths(inputDirectory)
+	args = parser.parse_args()
 
-	fileQueue = Queue()
-
-	for sourceFilename in filepaths:
-		fileQueue.put(sourceFilename)
-
-	for i in range(7):
-		t = Thread(target = run, args = (fileQueue,outDirectory,width))
-		t.daemon = True
-		t.start()
-
-	fileQueue.join()
-	#clean(sys.argv[1],".png")
+	print(args)
+	main(args.input_dir, width=None)
 
